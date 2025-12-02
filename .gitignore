@@ -38,8 +38,6 @@ web/sites/*/files/js/
 .ddev/.global_commands
 *.tar
 *.gz
-*.sql
-*.sql.gz
 
 # -------------------------------------
 # OS-generated files
