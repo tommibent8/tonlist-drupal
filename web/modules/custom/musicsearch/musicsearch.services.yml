@@ -1,0 +1,12 @@
+services:
+  musicsearch.search_service:
+    class: Drupal\musicsearch\MusicSearchService
+    arguments: ['@musicsearch.spotify_lookup', '@musicsearch.discogs_lookup']
+
+  musicsearch.spotify_lookup:
+    class: Drupal\musicsearch\SpotifyLookupService
+    arguments: ['@config.factory', '@http_client']
+
+  musicsearch.discogs_lookup:
+    class: Drupal\musicsearch\DiscogsLookupService
+    arguments: ['@config.factory', '@http_client']

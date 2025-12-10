@@ -1,0 +1,6 @@
+name: Music Search
+type: module
+description: 'Searches for artists, albums and tracks via Spotify and Discogs and allows importing into content types.'
+core_version_requirement: ^10 || ^11
+package: Custom
+dependencies: []
