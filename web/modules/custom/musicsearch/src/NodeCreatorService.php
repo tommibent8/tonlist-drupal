@@ -29,57 +29,60 @@ class NodeCreatorService {
   }
 
   /* ===============================================================
-     UNIVERSAL SAFE IMAGE ITEM BUILDER (Fixes ALL Drupal edit errors)
+     SAFE FILE ITEM BUILDER (Required by Drupal)
      =============================================================== */
-  private function buildImageItem(int $fid, string $alt = 'Image'): array {
+  private function buildImageItem(\Drupal\file\Entity\File $file, string $alt): array {
+    $metadata = @getimagesize($file->getFileUri());
+
     return [
-      'target_id' => $fid,
-      'alt' => $alt ?: 'Image',
-      'title' => '',
+      'target_id' => $file->id(),
+      'alt'       => $alt ?: 'Image',
+      'title'     => '',
+      'width'     => $metadata[0] ?? NULL,
+      'height'    => $metadata[1] ?? NULL,
     ];
   }
 
   /* ===============================================================
-     IMAGE SAVING
+     IMAGE SAVING (Now returns FULL File entity)
      =============================================================== */
-  protected function saveImageFromUrl(string $url): ?int {
+  protected function saveImageFromUrl(string $url): ?\Drupal\file\Entity\File {
     try {
       $data = @file_get_contents($url);
       if (!$data) {
-        return "";
+        $this->logger->warning("Could not download image: $url");
+        return NULL;
       }
 
-      $finfo = finfo_open(FILEINFO_MIME_TYPE);
-      $mime = finfo_buffer($finfo, $data);
-      finfo_close($finfo);
-
-      // Only allow real images
-      if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'])) {
-        $this->logger->warning("Invalid image mime type ($mime) from $url");
-        return "";
+      // Validate image type
+      $info = @getimagesizefromstring($data);
+      if (!$info) {
+        $this->logger->warning("Invalid image data from $url");
+        return NULL;
       }
 
       $directory = 'public://music_images';
       $this->fileSystem->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY);
 
-      $filename = basename(parse_url($url, PHP_URL_PATH));
-      $destination = $directory . '/' . $filename;
+      $extension = image_type_to_extension($info[2], false); // jpg/png/webp
+      $filename = uniqid('img_') . '.' . $extension;
 
-      $saved_path = $this->fileSystem->saveData(
-        $data,
-        $destination,
-        FileSystemInterface::EXISTS_RENAME
-      );
+      $uri = "$directory/$filename";
 
-      if (!$saved_path) return NULL;
+      $saved_path = $this->fileSystem->saveData($data, $uri, FileSystemInterface::EXISTS_RENAME);
+      if (!$saved_path) {
+        return NULL;
+      }
 
-      $file = \Drupal\file\Entity\File::create(['uri' => $saved_path]);
+      $file = \Drupal\file\Entity\File::create([
+        'uri' => $saved_path,
+      ]);
       $file->save();
 
-      return $file->id();
+      return $file;
 
     } catch (\Exception $e) {
-      $this->logger->error('Image download failed: ' . $e->getMessage());
+      $this->logger->error("Image save failed for $url — " . $e->getMessage());
       return NULL;
     }
   }
@@ -102,7 +105,7 @@ class NodeCreatorService {
 
     $term = $storage->create([
       'name' => $name,
-      'vid' => 'tegund_tonlistar',
+      'vid'  => 'tegund_tonlistar',
     ]);
     $term->save();
 
@@ -135,12 +138,11 @@ class NodeCreatorService {
   }
 
   /* ===============================================================
-     ARTIST NODE CREATION
+     ARTIST NODE
      =============================================================== */
   public function createArtist(array $data, array $fields) {
-
     $values = [
-      'type' => 'listamadur',
+      'type'  => 'listamadur',
       'title' => $data['name'] ?? 'Unknown Artist',
     ];
 
@@ -153,12 +155,12 @@ class NodeCreatorService {
     }
 
     if (in_array('genres', $fields)) {
-      $term_ids = [];
+      $terms = [];
       foreach ($data['genres'] ?? [] as $g) {
         $tid = $this->getOrCreateGenre($g);
-        if ($tid) $term_ids[] = $tid;
+        if ($tid) $terms[] = $tid;
       }
-      $values['field_tegund_tonlistar'] = $term_ids;
+      $values['field_tegund_tonlistar'] = $terms;
     }
 
     if (in_array('website', $fields)) {
@@ -167,7 +169,7 @@ class NodeCreatorService {
 
     if (in_array('description', $fields)) {
       $values['field_lysing_listamadur'] = [
-        'value' => $data['description'] ?? '',
+        'value'  => $data['description'] ?? '',
         'format' => 'basic_html',
       ];
     }
@@ -180,15 +182,17 @@ class NodeCreatorService {
       $values['field_danardagur'] = $data['death'] ?? '';
     }
 
-    // ✔ SAFE MULTIPLE IMAGE HANDLING
+    /* ---------- SAFE MULTIPLE IMAGE FIELD ---------- */
     if (in_array('images', $fields) && !empty($data['images'])) {
       $items = [];
+
       foreach ($data['images'] as $url) {
-        $fid = $this->saveImageFromUrl($url);
-        if ($fid) {
-          $items[] = $this->buildImageItem($fid, $data['name'] ?? 'Artist image');
+        $file = $this->saveImageFromUrl($url);
+        if ($file) {
+          $items[] = $this->buildImageItem($file, $data['name'] ?? 'Artist image');
         }
       }
+
       if ($items) {
         $values['field_myndir'] = $items;
       }
@@ -196,20 +200,18 @@ class NodeCreatorService {
 
     $node = $this->entityTypeManager->getStorage('node')->create($values);
     $node->save();
-
     $this->lastArtistNid = $node->id();
+
     return $node;
   }
 
   /* ===============================================================
-     ALBUM NODE CREATION
+     ALBUM NODE
      =============================================================== */
   public function createAlbum(array $data, $artistNode, array $fields = []) {
-
     $values = [
-      'type' => 'plata',
+      'type'  => 'plata',
       'title' => $data['title'] ?? 'Untitled Album',
-      // You removed field_flytjandi — OK for now
     ];
 
     if (in_array('title', $fields)) {
@@ -218,14 +220,12 @@ class NodeCreatorService {
 
     if (in_array('label', $fields)) {
       $uid = $this->getOrCreateUtgefandi($data['label'] ?? '');
-      if ($uid) {
-        $values['field_plata_utgefandi'] = ['target_id' => $uid];
-      }
+      if ($uid) $values['field_plata_utgefandi'] = ['target_id' => $uid];
     }
 
     if (in_array('description', $fields)) {
       $values['field_lysing'] = [
-        'value' => $data['description'] ?? '',
+        'value'  => $data['description'] ?? '',
         'format' => 'basic_html',
       ];
     }
@@ -236,44 +236,43 @@ class NodeCreatorService {
     }
 
     if (in_array('genres', $fields)) {
-      $tids = [];
+      $terms = [];
       foreach ($data['genres'] ?? [] as $g) {
         $tid = $this->getOrCreateGenre($g);
-        if ($tid) $tids[] = $tid;
+        if ($tid) $terms[] = $tid;
       }
-      $values['field_tegund_tonlistar'] = $tids;
+      $values['field_tegund_tonlistar'] = $terms;
     }
 
-    // ✔ SAFE SINGLE IMAGE HANDLING
+    /* ---------- SAFE SINGLE IMAGE FIELD ---------- */
     if (in_array('image', $fields) && !empty($data['image'])) {
-      $fid = $this->saveImageFromUrl($data['image']);
-      if ($fid) {
+      $file = $this->saveImageFromUrl($data['image']);
+      if ($file) {
         $values['field_umslagsmynd'] = [
-          $this->buildImageItem($fid, $data['title'] ?? 'Album image'),
+          $this->buildImageItem($file, $data['title'] ?? 'Album image'),
         ];
       }
     }
 
     $node = $this->entityTypeManager->getStorage('node')->create($values);
     $node->save();
-
     $this->lastAlbumNid = $node->id();
+
     return $node;
   }
 
   /* ===============================================================
-     TRACK NODE CREATION
+     TRACK NODE
      =============================================================== */
   public function createTrack(array $data, $albumNode, array $fields = []) {
-
     $values = [
-      'type' => 'lag',
+      'type'  => 'lag',
       'title' => $data['title'] ?? 'Unnamed Track',
     ];
 
     if (in_array('title', $fields)) {
       $values['field_lag_titill'] = [
-        'value' => $data['title'] ?? '',
+        'value'  => $data['title'] ?? '',
         'format' => 'basic_html',
       ];
     }
@@ -287,12 +286,12 @@ class NodeCreatorService {
     }
 
     if (in_array('genres', $fields)) {
-      $tids = [];
+      $terms = [];
       foreach ($data['genres'] ?? [] as $g) {
         $tid = $this->getOrCreateGenre($g);
-        if ($tid) $tids[] = $tid;
+        if ($tid) $terms[] = $tid;
       }
-      $values['field_tegund_tonlistar_lags'] = $tids;
+      $values['field_tegund_tonlistar_lags'] = $terms;
     }
 
     $node = $this->entityTypeManager->getStorage('node')->create($values);
@@ -304,7 +303,6 @@ class NodeCreatorService {
   /* ===============================================================
      HELPERS
      =============================================================== */
-
   public function getLastCreatedArtist() {
     return $this->lastArtistNid
       ? $this->entityTypeManager->getStorage('node')->load($this->lastArtistNid)
@@ -317,4 +315,3 @@ class NodeCreatorService {
       : NULL;
   }
 }
-
