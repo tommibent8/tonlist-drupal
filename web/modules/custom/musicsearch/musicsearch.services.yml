@@ -10,3 +10,6 @@ services:
   musicsearch.discogs_lookup:
     class: Drupal\musicsearch\DiscogsLookupService
     arguments: ['@config.factory', '@http_client']
+
+  musicsearch.merge:
+      class: Drupal\musicsearch\MergeService
