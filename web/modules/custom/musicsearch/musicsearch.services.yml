@@ -13,3 +13,12 @@ services:
 
   musicsearch.merge:
       class: Drupal\musicsearch\MergeService
+
+  musicsearch.node_creator:
+    class: Drupal\musicsearch\NodeCreatorService
+    arguments: ['@entity_type.manager', '@file_system', '@logger.channel.musicsearch']
+
+  logger.channel.musicsearch:
+    class: Drupal\Core\Logger\LoggerChannel
+    type: logging.channel
+    arguments: ['musicsearch']
