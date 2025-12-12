@@ -12,10 +12,10 @@ class MusicSearchService {
     $this->discogs = $discogs;
   }
 
-  public function search($query) {
+  public function search(array $criteria): array {
     return [
-      'spotify' => $this->spotify->search($query),
-      'discogs' => $this->discogs->search($query),
+      'spotify' => $this->spotify->search($criteria),
+      'discogs' => $this->discogs->search($criteria),
     ];
   }
 }
