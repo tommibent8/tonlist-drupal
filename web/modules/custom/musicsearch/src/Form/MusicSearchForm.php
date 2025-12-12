@@ -13,15 +13,16 @@ class MusicSearchForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state) {
 
-    $mode = $form_state->get('mode') ?? 'search';
+    $form['#attached']['library'][] = 'musicsearch/styles';
+
+    $mode   = $form_state->get('mode') ?? 'search';
     $merged = $form_state->get('merged_results');
 
     // ============================================================
-    // SEARCH MODE (default)
+    // SEARCH MODE
     // ============================================================
     if ($mode === 'search') {
 
-      // Input fields
       $form['artist'] = [
         '#type' => 'textfield',
         '#title' => 'Artist',
@@ -37,29 +38,29 @@ class MusicSearchForm extends FormBase {
         '#title' => 'Track',
       ];
 
-      // SEARCH BUTTON
       $form['actions']['search'] = [
         '#type' => 'submit',
         '#value' => 'Search',
         '#submit' => ['::submitSearch'],
       ];
 
-      // If there are results, show metadata + creation buttons
       if ($merged) {
 
         // -------------------------------
-        // ARTIST SECTION
+        // ARTIST
         // -------------------------------
-        if (!empty($merged['artist'])) {
+        if (!empty($merged['artist']['spotify']) || !empty($merged['artist']['discogs'])) {
           $form['artist_section'] = [
             '#type' => 'details',
             '#title' => 'Artist Metadata',
             '#open' => TRUE,
           ];
           $form['artist_section']['table'] = [
-            '#markup' => $this->buildArtistTable($merged['artist']),
+            '#markup' => $this->buildArtistTable(
+              $merged['artist']['spotify'] ?? [],
+              $merged['artist']['discogs'] ?? []
+            ),
           ];
-
           $form['artist_section']['create_artist'] = [
             '#type' => 'submit',
             '#value' => 'Create Artist Node',
@@ -69,18 +70,20 @@ class MusicSearchForm extends FormBase {
         }
 
         // -------------------------------
-        // ALBUM SECTION
+        // ALBUM
         // -------------------------------
-        if (!empty($merged['album'])) {
+        if (!empty($merged['album']['spotify']) || !empty($merged['album']['discogs'])) {
           $form['album_section'] = [
             '#type' => 'details',
             '#title' => 'Album Metadata',
             '#open' => TRUE,
           ];
           $form['album_section']['table'] = [
-            '#markup' => $this->buildAlbumTable($merged['album']),
+            '#markup' => $this->buildAlbumTable(
+              $merged['album']['spotify'] ?? [],
+              $merged['album']['discogs'] ?? []
+            ),
           ];
-
           $form['album_section']['create_album'] = [
             '#type' => 'submit',
             '#value' => 'Create Album Node',
@@ -90,18 +93,20 @@ class MusicSearchForm extends FormBase {
         }
 
         // -------------------------------
-        // TRACK SECTION
+        // TRACK
         // -------------------------------
-        if (!empty($merged['track'])) {
+        if (!empty($merged['track']['spotify']) || !empty($merged['track']['discogs'])) {
           $form['track_section'] = [
             '#type' => 'details',
             '#title' => 'Track Metadata',
             '#open' => TRUE,
           ];
           $form['track_section']['table'] = [
-            '#markup' => $this->buildTrackTable($merged['track']),
+            '#markup' => $this->buildTrackTable(
+              $merged['track']['spotify'] ?? [],
+              $merged['track']['discogs'] ?? []
+            ),
           ];
-
           $form['track_section']['create_track'] = [
             '#type' => 'submit',
             '#value' => 'Create Track Node',
@@ -115,45 +120,41 @@ class MusicSearchForm extends FormBase {
     }
 
     // ============================================================
-    // CREATE ARTIST MODE
+    // CREATE MODES (unchanged UX)
     // ============================================================
+
     if ($mode === 'create_artist') {
-
-      $artist = $merged['artist'];
-
       $form['artist_metadata'] = [
         '#type' => 'details',
         '#title' => 'Artist Metadata',
         '#open' => TRUE,
       ];
       $form['artist_metadata']['table'] = [
-        '#markup' => $this->buildArtistTable($artist),
+        '#markup' => $this->buildArtistTable(
+          $merged['artist']['spotify'] ?? [],
+          $merged['artist']['discogs'] ?? []
+        ),
       ];
 
-      // Checkbox list
       $form['artist_fields'] = [
-        '#type' => 'checkboxes',
+        '#type' => 'fieldset',
         '#title' => 'Select fields to import',
-        '#options' => [
-          'name' => 'Name',
-          'genres' => 'Genres',
-          'spotify_id' => 'Spotify ID',
-          'birth' => 'Birthdate',
-          'death' => 'Deathdate',
-          'website' => 'Website',
-          'description' => 'Description',
-          'images' => 'Images',
-        ],
       ];
 
-      // SAVE BUTTON
+      $this->addSourceRadios($form['artist_fields'], [
+        'name' => 'Name',
+        'genres' => 'Genres',
+        'description' => 'Description',
+        'website' => 'Website',
+        'images' => 'Images',
+      ], $merged['artist']);
+
       $form['actions']['save'] = [
         '#type' => 'submit',
         '#value' => 'Save Artist Node',
         '#submit' => ['::saveArtistNode'],
       ];
 
-      // BACK BUTTON
       $form['actions']['back'] = [
         '#type' => 'submit',
         '#value' => 'Back to Results',
@@ -164,34 +165,32 @@ class MusicSearchForm extends FormBase {
       return $form;
     }
 
-    // ============================================================
-    // CREATE ALBUM MODE
-    // ============================================================
     if ($mode === 'create_album') {
-
-      $album = $merged['album'];
-
       $form['album_metadata'] = [
         '#type' => 'details',
         '#title' => 'Album Metadata',
         '#open' => TRUE,
       ];
       $form['album_metadata']['table'] = [
-        '#markup' => $this->buildAlbumTable($album),
+        '#markup' => $this->buildAlbumTable(
+          $merged['album']['spotify'] ?? [],
+          $merged['album']['discogs'] ?? []
+        ),
       ];
 
       $form['album_fields'] = [
-        '#type' => 'checkboxes',
+        '#type' => 'fieldset',
         '#title' => 'Select fields to import',
-        '#options' => [
-          'title' => 'Title',
-          'label' => 'Label',
-          'description' => 'Description',
-          'release_date' => 'Release Date',
-          'genres' => 'Genres',
-          'image' => 'Image',
-        ],
       ];
+
+      $this->addSourceRadios($form['album_fields'], [
+        'title' => 'Title',
+        'label' => 'Label',
+        'description' => 'Description',
+        'release_date' => 'Release Date',
+        'genres' => 'Genres',
+        'image' => 'Image',
+      ], $merged['album']);
 
       $form['actions']['save'] = [
         '#type' => 'submit',
@@ -209,32 +208,29 @@ class MusicSearchForm extends FormBase {
       return $form;
     }
 
-    // ============================================================
-    // CREATE TRACK MODE
-    // ============================================================
     if ($mode === 'create_track') {
-
-      $track = $merged['track'];
-
       $form['track_metadata'] = [
         '#type' => 'details',
         '#title' => 'Track Metadata',
         '#open' => TRUE,
       ];
       $form['track_metadata']['table'] = [
-        '#markup' => $this->buildTrackTable($track),
+        '#markup' => $this->buildTrackTable(
+          $merged['track']['spotify'] ?? [],
+          $merged['track']['discogs'] ?? []
+        ),
       ];
 
       $form['track_fields'] = [
-        '#type' => 'checkboxes',
+        '#type' => 'fieldset',
         '#title' => 'Select fields to import',
-        '#options' => [
-          'title' => 'Title',
-          'spotify_id' => 'Spotify ID',
-          'duration_ms' => 'Length',
-          'genres' => 'Genres',
-        ],
       ];
+
+      $this->addSourceRadios($form['track_fields'], [
+        'title' => 'Title',
+        'duration_ms' => 'Length',
+        'genres' => 'Genres',
+      ], $merged['track']);
 
       $form['actions']['save'] = [
         '#type' => 'submit',
@@ -253,152 +249,419 @@ class MusicSearchForm extends FormBase {
     }
   }
 
+  // ============================================================
+  // RADIO BUILDER
+  // ============================================================
 
-  // ============================================================
-  // MODE SWITCH HANDLERS
-  // ============================================================
-  public function switchToArtistCreateMode(array &$form, FormStateInterface $form_state) {
-    $form_state->set('mode', 'create_artist');
-    $form_state->setRebuild(TRUE);
+  protected function addSourceRadios(array &$parent, array $fields, array $data) {
+    foreach ($fields as $key => $label) {
+      $options = [];
+      if (!empty($data['spotify'][$key])) $options['spotify'] = 'Spotify';
+      if (!empty($data['discogs'][$key])) $options['discogs'] = 'Discogs';
+      if (!$options) continue;
+
+      $options['none'] = 'Do not import';
+
+      $parent[$key] = [
+        '#type' => 'radios',
+        '#title' => $label,
+        '#options' => $options,
+        '#default_value' => isset($options['spotify']) ? 'spotify' : array_key_first($options),
+      ];
+    }
   }
 
-  public function switchToAlbumCreateMode(array &$form, FormStateInterface $form_state) {
-    $form_state->set('mode', 'create_album');
-    $form_state->setRebuild(TRUE);
-  }
-
-  public function switchToTrackCreateMode(array &$form, FormStateInterface $form_state) {
-    $form_state->set('mode', 'create_track');
-    $form_state->setRebuild(TRUE);
-  }
-
-  public function returnToSearch(array &$form, FormStateInterface $form_state) {
-    $form_state->set('mode', 'search');
-    $form_state->setRebuild(TRUE);
-  }
-
-
   // ============================================================
-  // SUBMIT: SEARCH ONLY
+  // SEARCH
   // ============================================================
+
   public function submitSearch(array &$form, FormStateInterface $form_state) {
-
     $artist = $form_state->getValue('artist');
     $album  = $form_state->getValue('album');
     $track  = $form_state->getValue('track');
 
-    $spotify = \Drupal::service('musicsearch.spotify_lookup')
-      ->fullSearch($artist, $album, $track);
+    $spotify = \Drupal::service('musicsearch.spotify_lookup')->fullSearch($artist, $album, $track);
+    $discogs = \Drupal::service('musicsearch.discogs_lookup')->fullSearch($artist, $album, $track);
 
-    $form_state->set('merged_results', $spotify);
-    $form_state->set('mode', 'search');
+    $form_state->set('merged_results', [
+      'artist' => ['spotify'=>$spotify['artist']??[], 'discogs'=>$discogs['artist']??[]],
+      'album'  => ['spotify'=>$spotify['album']??[],  'discogs'=>$discogs['album']??[]],
+      'track'  => ['spotify'=>$spotify['track']??[],  'discogs'=>$discogs['track']??[]],
+    ]);
+
     $form_state->setRebuild(TRUE);
   }
 
+  // ============================================================
+  // TABLE HELPERS (COMPARE VIEW)
+  // ============================================================
 
-  // ============================================================
-  // SAVE NODE HANDLERS
-  // ============================================================
+  protected function displayValue($value) {
+    if (is_array($value)) {
+      return $value ? implode(', ', $value) : '—';
+    }
+    return !empty($value) ? $value : '—';
+  }
+
+  protected function buildCompareRow($label, $spotifyValue, $discogsValue) {
+
+    $wrap = ($label === 'Description');
+
+    $spotifyContent = $wrap
+      ? "<div class=\"musicsearch-description\">{$this->displayValue($spotifyValue)}</div>"
+      : $this->displayValue($spotifyValue);
+
+    $discogsContent = $wrap
+      ? "<div class=\"musicsearch-description\">{$this->displayValue($discogsValue)}</div>"
+      : $this->displayValue($discogsValue);
+
+    return "<tr>
+    <td><strong>$label</strong></td>
+    <td>$spotifyContent</td>
+    <td>$discogsContent</td>
+  </tr>";
+  }
+
+  protected function renderImages(array $images) {
+    if (empty($images)) return '—';
+    $html = '';
+    foreach ($images as $url) {
+      $html .= "<img src='$url' width='80' style='margin-right:6px;'>";
+    }
+    return $html;
+  }
+
+  protected function buildArtistTable(array $spotify, array $discogs) {
+    $rows = '';
+    $rows .= $this->buildCompareRow('Name', $spotify['name'] ?? '', $discogs['name'] ?? '');
+    $rows .= $this->buildCompareRow('Genres', $spotify['genres'] ?? '', $discogs['genres'] ?? '');
+    $rows .= $this->buildCompareRow('Spotify ID', $spotify['id'] ?? '', '');
+    $rows .= $this->buildCompareRow('Discogs ID', '', $discogs['discogs_id'] ?? '');
+    $rows .= $this->buildCompareRow('Website', $spotify['website'] ?? '', $discogs['website'] ?? '');
+    $rows .= $this->buildCompareRow('Description', $spotify['description'] ?? '', $discogs['description'] ?? '');
+    $rows .= "<tr>
+      <td><strong>Images</strong></td>
+      <td>{$this->renderImages($spotify['images'] ?? [])}</td>
+      <td>{$this->renderImages($discogs['images'] ?? [])}</td>
+    </tr>";
+
+    return "<table class='musicsearch-compare'>
+      <thead><tr><th>Field</th><th>Spotify</th><th>Discogs</th></tr></thead>
+      <tbody>$rows</tbody>
+    </table>";
+  }
+
+  protected function buildAlbumTable(array $spotify, array $discogs) {
+
+    // Defensive normalization (prevents undefined key warnings)
+    $spotify['image'] = $spotify['image'] ?? null;
+    $discogs['image'] = $discogs['image'] ?? null;
+
+    $rows = '';
+
+    $rows .= $this->buildCompareRow(
+      'Title',
+      $spotify['title'] ?? null,
+      $discogs['title'] ?? null
+    );
+
+    $rows .= $this->buildCompareRow(
+      'Artist',
+      $spotify['artist_name'] ?? null,
+      $discogs['artist_name'] ?? null
+    );
+
+    $rows .= $this->buildCompareRow(
+      'Spotify ID',
+      $spotify['id'] ?? null,
+      null
+    );
+
+    $rows .= $this->buildCompareRow(
+      'Discogs ID',
+      null,
+      $discogs['discogs_id'] ?? null
+    );
+
+    $rows .= $this->buildCompareRow(
+      'Release Date',
+      $spotify['release_date'] ?? null,
+      $discogs['release_date'] ?? null
+    );
+
+    $rows .= $this->buildCompareRow(
+      'Genres',
+      $spotify['genres'] ?? null,
+      $discogs['genres'] ?? null
+    );
+
+    $rows .= $this->buildCompareRow(
+      'Label',
+      $spotify['label'] ?? null,
+      $discogs['label'] ?? null
+    );
+
+    // Image row (safe for missing keys)
+    $rows .= "<tr>
+    <td><strong>Image</strong></td>
+    <td>{$this->renderImages(
+      !empty($spotify['image']) ? [$spotify['image']] : []
+    )}</td>
+    <td>{$this->renderImages(
+      !empty($discogs['image']) ? [$discogs['image']] : []
+    )}</td>
+  </tr>";
+
+    return "
+    <table class='musicsearch-compare'>
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Spotify</th>
+          <th>Discogs</th>
+        </tr>
+      </thead>
+      <tbody>
+        $rows
+      </tbody>
+    </table>
+  ";
+  }
+
+
+  protected function buildTrackTable(array $spotify, array $discogs) {
+    $rows = '';
+    $rows .= $this->buildCompareRow('Title', $spotify['title'] ?? '', $discogs['title'] ?? '');
+    $rows .= $this->buildCompareRow('Spotify ID', $spotify['id'] ?? '', '');
+    $rows .= $this->buildCompareRow('Discogs ID', '', $discogs['discogs_id'] ?? '');
+    $rows .= $this->buildCompareRow('Genres', $spotify['genres'] ?? '', $discogs['genres'] ?? '');
+
+    return "<table class='musicsearch-compare'>
+      <thead><tr><th>Field</th><th>Spotify</th><th>Discogs</th></tr></thead>
+      <tbody>$rows</tbody>
+    </table>";
+  }
+
+  public function switchToArtistCreateMode(array &$form, FormStateInterface $form_state) {
+    $form_state->set('mode', 'create_artist')->setRebuild(TRUE);
+  }
+  public function switchToAlbumCreateMode(array &$form, FormStateInterface $form_state) {
+    $form_state->set('mode', 'create_album')->setRebuild(TRUE);
+  }
+  public function switchToTrackCreateMode(array &$form, FormStateInterface $form_state) {
+    $form_state->set('mode', 'create_track')->setRebuild(TRUE);
+  }
+  public function returnToSearch(array &$form, FormStateInterface $form_state) {
+    $form_state->set('mode', 'search')->setRebuild(TRUE);
+  }
+
   public function saveArtistNode(array &$form, FormStateInterface $form_state) {
-    $fields = array_filter($form_state->getValue('artist_fields'));
-    $data = $form_state->get('merged_results')['artist'];
+    $merged = $form_state->get('merged_results');
 
-    $node = \Drupal::service('musicsearch.node_creator')
-      ->createArtist($data, $fields);
+    if (empty($merged['artist'])) {
+      \Drupal::messenger()->addError('No artist data available.');
+      return;
+    }
 
-    $form_state->setRedirect('entity.node.canonical', ['node' => $node->id()]);
-  }
+    $spotify = $merged['artist']['spotify'] ?? [];
+    $discogs = $merged['artist']['discogs'] ?? [];
 
-  public function saveAlbumNode(array &$form, FormStateInterface $form_state) {
-    $fields = array_filter($form_state->getValue('album_fields'));
-    $data = $form_state->get('merged_results')['album'];
+    $data = [];
+    $fields = [];
 
-    $artistNode
-      = \Drupal::service('musicsearch.node_creator')->getLastCreatedArtist();
+    // Map form field keys to NodeCreatorService expected keys
+    $fieldMap = [
+      'name'        => 'name',
+      'genres'      => 'genres',
+      'description' => 'description',
+      'website'     => 'website',
+      'images'      => 'images',
+    ];
 
-    $node = \Drupal::service('musicsearch.node_creator')
-      ->createAlbum($data, $artistNode, $fields);
+    foreach ($fieldMap as $formKey => $dataKey) {
+      $source = $form_state->getValue($formKey);
 
-    $form_state->setRedirect('entity.node.canonical', ['node' => $node->id()]);
-  }
-
-  public function saveTrackNode(array &$form, FormStateInterface $form_state) {
-    $fields = array_filter($form_state->getValue('track_fields'));
-    $data = $form_state->get('merged_results')['track'];
-
-    $albumNode
-      = \Drupal::service('musicsearch.node_creator')->getLastCreatedAlbum();
-
-    $node = \Drupal::service('musicsearch.node_creator')
-      ->createTrack($data, $albumNode, $fields);
-
-    $form_state->setRedirect('entity.node.canonical', ['node' => $node->id()]);
-  }
-
-
-  // ============================================================
-  // TABLE + UTILS (unchanged from your version)
-  // ============================================================
-  protected function msToMinSec($ms) {
-    if (!$ms) return '';
-    $sec = floor($ms / 1000);
-    return sprintf("%d:%02d", floor($sec / 60), $sec % 60);
-  }
-
-  protected function buildRow($label, $value) {
-    return "<tr><td><strong>$label</strong></td><td>$value</td></tr>";
-  }
-
-  protected function buildArtistTable($a) {
-    $rows = "";
-    $rows .= $this->buildRow("Name", $a['name'] ?? '');
-    $rows .= $this->buildRow("Genres", implode(', ', $a['genres'] ?? []));
-    $rows .= $this->buildRow("Spotify ID", $a['id'] ?? '');
-    $rows .= $this->buildRow("Birthdate", $a['birth'] ?? '');
-    $rows .= $this->buildRow("Deathdate", $a['death'] ?? '');
-    $rows .= $this->buildRow("Website", $a['website'] ?? '');
-    $rows .= $this->buildRow("Description", $a['description'] ?? '');
-
-    $img_html = "";
-    if (!empty($a['images'])) {
-      foreach ($a['images'] as $url) {
-        $img_html .= "<img src='$url' width='120' style='margin-right:10px;'> ";
+      if ($source === 'spotify' && !empty($spotify[$dataKey])) {
+        $data[$dataKey] = $spotify[$dataKey];
+        $fields[] = $dataKey;
+      }
+      elseif ($source === 'discogs' && !empty($discogs[$dataKey])) {
+        $data[$dataKey] = $discogs[$dataKey];
+        $fields[] = $dataKey;
       }
     }
-    $rows .= $this->buildRow("Images", $img_html);
 
-    return "<table>$rows</table>";
+    // Always pass IDs if available (no radios for these)
+    if (!empty($spotify['id'])) {
+      $data['id'] = $spotify['id'];
+      $fields[] = 'spotify_id';
+    }
+
+    if (!empty($discogs['discogs_id'])) {
+      $data['discogs_id'] = $discogs['discogs_id'];
+      $fields[] = 'discogs_id';
+    }
+
+    if (empty($fields)) {
+      \Drupal::messenger()->addError('No fields selected for import.');
+      return;
+    }
+
+    /** @var \Drupal\musicsearch\NodeCreatorService $creator */
+    $creator = \Drupal::service('musicsearch.node_creator');
+
+    $node = $creator->createArtist($data, $fields);
+
+    if ($node) {
+      \Drupal::messenger()->addStatus('Artist node created successfully.');
+      $form_state
+        ->set('mode', 'search')
+        ->setRebuild(TRUE);
+    }
+    else {
+      \Drupal::messenger()->addError('Failed to create artist node.');
+    }
   }
 
-  protected function buildAlbumTable($a) {
-    if (!$a) return "<p>No album data.</p>";
-    $rows = "";
-    $rows .= $this->buildRow("Title", $a['title'] ?? '');
-    $rows .= $this->buildRow("Artist", $a['artist_name'] ?? '');
-    $rows .= $this->buildRow("Label", $a['label'] ?? '');
-    $rows .= $this->buildRow("Description", $a['description'] ?? '');
-    $rows .= $this->buildRow("Release Date", $a['release_date'] ?? '');
-    $rows .= $this->buildRow("Genres", implode(', ', $a['genres'] ?? []));
-    $img = $a['image'] ?? '';
-    $rows .= $this->buildRow("Image", $img ? "<img src='$img' width='120'>" : '');
-    return "<table>$rows</table>";
+
+  public function saveAlbumNode(array &$form, FormStateInterface $form_state) {
+    $merged = $form_state->get('merged_results');
+
+    if (empty($merged['album'])) {
+      \Drupal::messenger()->addError('No album data available.');
+      return;
+    }
+
+    $spotify = $merged['album']['spotify'] ?? [];
+    $discogs = $merged['album']['discogs'] ?? [];
+
+    $data = [];
+    $fields = [];
+
+    // Map form field keys to NodeCreatorService expected keys
+    $fieldMap = [
+      'title'        => 'title',
+      'label'        => 'label',
+      'description'  => 'description',
+      'release_date' => 'release_date',
+      'genres'       => 'genres',
+      'image'        => 'image',
+    ];
+
+    foreach ($fieldMap as $formKey => $dataKey) {
+      $source = $form_state->getValue($formKey);
+
+      if ($source === 'spotify' && !empty($spotify[$dataKey])) {
+        $data[$dataKey] = $spotify[$dataKey];
+        $fields[] = $dataKey;
+      }
+      elseif ($source === 'discogs' && !empty($discogs[$dataKey])) {
+        $data[$dataKey] = $discogs[$dataKey];
+        $fields[] = $dataKey;
+      }
+    }
+
+    // Always pass IDs if available
+    if (!empty($spotify['id'])) {
+      $data['id'] = $spotify['id'];
+      $fields[] = 'spotify_id';
+    }
+
+    if (!empty($discogs['discogs_id'])) {
+      $data['discogs_id'] = $discogs['discogs_id'];
+      $fields[] = 'discogs_id';
+    }
+
+    if (empty($fields)) {
+      \Drupal::messenger()->addError('No fields selected for import.');
+      return;
+    }
+
+    /** @var \Drupal\musicsearch\NodeCreatorService $creator */
+    $creator = \Drupal::service('musicsearch.node_creator');
+
+    $artistNode = $creator->getLastCreatedArtist();
+
+    $node = $creator->createAlbum($data, $artistNode, $fields);
+
+    if ($node) {
+      \Drupal::messenger()->addStatus('Album node created successfully.');
+      $form_state
+        ->set('mode', 'search')
+        ->setRebuild(TRUE);
+    }
+    else {
+      \Drupal::messenger()->addError('Failed to create album node.');
+    }
+  }
+  public function saveTrackNode(array &$form, FormStateInterface $form_state) {
+    $merged = $form_state->get('merged_results');
+
+    if (empty($merged['track'])) {
+      \Drupal::messenger()->addError('No track data available.');
+      return;
+    }
+
+    $spotify = $merged['track']['spotify'] ?? [];
+    $discogs = $merged['track']['discogs'] ?? [];
+
+    $data = [];
+    $fields = [];
+
+    // Map form field keys to NodeCreatorService expected keys
+    $fieldMap = [
+      'title'       => 'title',
+      'duration_ms' => 'duration_ms',
+      'genres'      => 'genres',
+    ];
+
+    foreach ($fieldMap as $formKey => $dataKey) {
+      $source = $form_state->getValue($formKey);
+
+      if ($source === 'spotify' && !empty($spotify[$dataKey])) {
+        $data[$dataKey] = $spotify[$dataKey];
+        $fields[] = $dataKey;
+      }
+      elseif ($source === 'discogs' && !empty($discogs[$dataKey])) {
+        $data[$dataKey] = $discogs[$dataKey];
+        $fields[] = $dataKey;
+      }
+    }
+
+    // Always pass IDs if available
+    if (!empty($spotify['id'])) {
+      $data['id'] = $spotify['id'];
+      $fields[] = 'spotify_id';
+    }
+
+    if (!empty($discogs['discogs_id'])) {
+      $data['discogs_id'] = $discogs['discogs_id'];
+      $fields[] = 'discogs_id';
+    }
+
+    if (empty($fields)) {
+      \Drupal::messenger()->addError('No fields selected for import.');
+      return;
+    }
+
+    /** @var \Drupal\musicsearch\NodeCreatorService $creator */
+    $creator = \Drupal::service('musicsearch.node_creator');
+
+    $albumNode = $creator->getLastCreatedAlbum();
+
+    $node = $creator->createTrack($data, $albumNode, $fields);
+
+    if ($node) {
+      \Drupal::messenger()->addStatus('Track node created successfully.');
+      $form_state
+        ->set('mode', 'search')
+        ->setRebuild(TRUE);
+    }
+    else {
+      \Drupal::messenger()->addError('Failed to create track node.');
+    }
   }
 
-  protected function buildTrackTable($t) {
-    if (!$t) return "<p>No track data.</p>";
-    $rows = "";
-    $rows .= $this->buildRow("Title", $t['title'] ?? '');
-    $rows .= $this->buildRow("Spotify ID", $t['id'] ?? '');
-    $rows .= $this->buildRow("Length", $this->msToMinSec($t['duration_ms'] ?? ''));
-    $rows .= $this->buildRow("Genres", implode(', ', $t['genres'] ?? []));
-    return "<table>$rows</table>";
-  }
-  /**
-   * Required by FormBase, but unused because all submit actions
-   * are handled by custom submit handlers.
-   */
-  public function submitForm(array &$form, FormStateInterface $form_state) {
-    // Do nothing.
-  }
+  public function submitForm(array &$form, FormStateInterface $form_state) {}
 
 }

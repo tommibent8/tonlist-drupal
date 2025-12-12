@@ -182,6 +182,11 @@ class NodeCreatorService {
       $values['field_danardagur'] = $data['death'] ?? '';
     }
 
+    if (in_array('discogs_id', $fields)) {
+      $values['field_listamadur_discogs_id'] = $data['discogs_id'] ?? '';
+    }
+
+
     /* ---------- SAFE MULTIPLE IMAGE FIELD ---------- */
     if (in_array('images', $fields) && !empty($data['images'])) {
       $items = [];
@@ -235,6 +240,11 @@ class NodeCreatorService {
       $values['field_plata_utgafuar'] = $year ?: NULL;
     }
 
+    if (in_array('discogs_id', $fields)) {
+      $values['field_plata_discogs_id'] = $data['discogs_id'] ?? '';
+    }
+
+
     if (in_array('genres', $fields)) {
       $terms = [];
       foreach ($data['genres'] ?? [] as $g) {
@@ -284,6 +294,10 @@ class NodeCreatorService {
     if (in_array('duration_ms', $fields)) {
       $values['field_lag_lengd'] = ($data['duration_ms'] ?? 0) / 1000 / 60;
     }
+    if (in_array('discogs_id', $fields)) {
+      $values['field_lag_discogs_id'] = $data['discogs_id'] ?? '';
+    }
+
 
     if (in_array('genres', $fields)) {
       $terms = [];

@@ -5,3 +5,55 @@
   padding: 8px;
   border-bottom: 1px solid #ddd;
 }
+
+.musicsearch-compare {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.musicsearch-compare th {
+  text-align: left;
+  background: #f5f7fa;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-bottom: 2px solid #e1e5ea;
+}
+
+.musicsearch-compare td {
+  vertical-align: top;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eaecef;
+}
+
+.musicsearch-compare td:first-child {
+  font-weight: 600;
+  color: #333;
+  width: 160px;
+  white-space: nowrap;
+}
+
+.musicsearch-compare td:nth-child(2),
+.musicsearch-compare th:nth-child(2) {
+  background-color: #fafcff;
+}
+
+.musicsearch-compare td:nth-child(3),
+.musicsearch-compare th:nth-child(3) {
+  background-color: #fffaf7;
+}
+.musicsearch-description {
+  max-width: 420px;
+  line-height: 1.45;
+  color: #444;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.musicsearch-compare img {
+  border-radius: 4px;
+  margin: 4px 6px 4px 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+

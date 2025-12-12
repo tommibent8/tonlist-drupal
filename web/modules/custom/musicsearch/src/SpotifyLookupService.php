@@ -249,6 +249,7 @@ class SpotifyLookupService {
         'release_date'  => $album['release_date'] ?? '',
         'image'         => $album['images'][0]['url'] ?? '',
         'genres'        => $album['genres'] ?? [],
+        'id' => $album['id'] ?? '',
       ] : [],
 
       'track' => $track ? [
