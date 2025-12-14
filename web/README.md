@@ -118,13 +118,25 @@ Make sure you have installed:
 # Clone the repository
 git clone <your-repository-url>
 cd <project-folder>
+cd tonlist-drupal
 
 # Start the local environment
 ddev start
 
 # Import database
-ddev import-db --file=db_plain.sql
+ddev import-db --file=database/db.sql.gz
 
-# Launch site
-ddev launch
+# Install composer
+ddev composer install
 
+# Download the custom module
+ddev drush en musicsearch -y
+
+# Launch site as admin
+ddev drush uli
+
+# Backend api config (add api keys)
+/admin/config/musicsearch/settings
+
+# Locate the custom search module
+/music-search
