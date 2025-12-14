@@ -40,7 +40,6 @@ The project includes:
 - Enter a search term (artist or album)
 - Click **Search**
 - Results are displayed on the same page
-- The search currently returns mock data, but the architecture supports future API integration
 
 ### Media
 - Media entities are used for images
