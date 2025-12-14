@@ -109,7 +109,6 @@ Make sure you have installed:
 
 ## Limitations and Future Work
 
-- The music search currently uses mock data
 - External APIs (Spotify, Discogs) are not yet integrated
 - The architecture is prepared for service-based API integration
 
